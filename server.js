@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const axios = require("axios");
 const cors = require("cors");
-const pdfParse = require("pdf-parse");
+const path = require("path");
 require('dotenv').config();  // Load environment variables
 
 const app = express();
@@ -14,6 +14,7 @@ const corsOptions = {
     optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -64,29 +65,31 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
         }
 
         // Call to OpenRouter AI API
-        const response = await axios.post(
+        const response = await fetch(
             "https://openrouter.ai/api/v1/chat/completions",
             {
-                model: "meta-llama/llama-3.3-70b-instruct:free",
-                messages: [
-                    {
-                        role: "user",
-                        content: roastPrompt,
-                    },
-                ],
-                top_p: 1,
-                temperature: 1,
-                repetition_penalty: 1,
-            },
-            {
+                method: "POST",
                 headers: {
                     Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                     "Content-Type": "application/json",
                 },
+                body: JSON.stringify({
+                    model: "meta-llama/llama-3.3-70b-instruct:free",
+                    messages: [
+                        {
+                            role: "user",
+                            content: roastPrompt,
+                        },
+                    ],
+                    top_p: 1,
+                    temperature: 1,
+                    repetition_penalty: 1,
+                }),
             }
         );
 
-        const roastText = response.data.choices[0].message.content;
+        const data = await response.json();
+        const roastText = data.choices[0].message.content;
 
         res.json({ roast: roastText });
 
@@ -100,13 +103,8 @@ app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
 
-// Function to extract text from PDF
+// Function to extract text from PDF (you'll need to implement this)
 async function extractTextFromPDF(buffer) {
-    try {
-        const data = await pdfParse(buffer);
-        return data.text;
-    } catch (error) {
-        console.error("Error extracting text from PDF:", error);
-        throw new Error("Failed to extract text from PDF");
-    }
+    // Implement your PDF text extraction logic here
+    return "Extracted text from PDF";
 }
