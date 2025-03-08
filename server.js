@@ -2,14 +2,18 @@ const express = require("express");
 const multer = require("multer");
 const axios = require("axios");
 const cors = require("cors");
-const path = require("path");
+const pdfParse = require("pdf-parse");
 require('dotenv').config();  // Load environment variables
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+    origin: 'https://resume-roast-three.vercel.app', // Your frontend URL
+    optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -60,31 +64,29 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
         }
 
         // Call to OpenRouter AI API
-        const response = await fetch(
+        const response = await axios.post(
             "https://openrouter.ai/api/v1/chat/completions",
             {
-                method: "POST",
+                model: "meta-llama/llama-3.3-70b-instruct:free",
+                messages: [
+                    {
+                        role: "user",
+                        content: roastPrompt,
+                    },
+                ],
+                top_p: 1,
+                temperature: 1,
+                repetition_penalty: 1,
+            },
+            {
                 headers: {
                     Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    model: "meta-llama/llama-3.3-70b-instruct:free",
-                    messages: [
-                        {
-                            role: "user",
-                            content: roastPrompt,
-                        },
-                    ],
-                    top_p: 1,
-                    temperature: 1,
-                    repetition_penalty: 1,
-                }),
             }
         );
 
-        const data = await response.json();
-        const roastText = data.choices[0].message.content;
+        const roastText = response.data.choices[0].message.content;
 
         res.json({ roast: roastText });
 
@@ -98,8 +100,13 @@ app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
 
-// Function to extract text from PDF (you'll need to implement this)
+// Function to extract text from PDF
 async function extractTextFromPDF(buffer) {
-    // Implement your PDF text extraction logic here
-    return "Extracted text from PDF";
+    try {
+        const data = await pdfParse(buffer);
+        return data.text;
+    } catch (error) {
+        console.error("Error extracting text from PDF:", error);
+        throw new Error("Failed to extract text from PDF");
+    }
 }
