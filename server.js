@@ -89,6 +89,11 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
         );
 
         const data = await response.json();
+
+        if (!response.data || !response.data.choices || !response.data.choices[0] || !response.data.choices[0].message || !response.data.choices[0].message.content) {
+            throw new Error("Invalid response format from AI API");
+        }
+        
         const roastText = data.choices[0].message.content;
 
         res.json({ roast: roastText });
