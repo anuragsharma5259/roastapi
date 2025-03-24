@@ -21,7 +21,6 @@ app.use(express.urlencoded({ extended: true }));
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-
 app.post("/upload-resume", upload.single("resume"), async (req, res) => {
     try {
         const resumeFile = req.file;
