@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 const corsOptions = {
-    origin: "*", // Allow all origins for testing
+    origin: "https://resume-roast-three.vercel.app", // Allow all origins for testing
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type", "Authorization"],
 };
