@@ -67,7 +67,7 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
         const response = await axios.post(
             "https://openrouter.ai/api/v1/chat/completions",
             {
-                model: "meta-llama/llama-3.3-70b-instruct:free",
+                model: "mistral/mistral-small-3-instruct:free",
                 messages: [
                     {
                         role: "user",
@@ -85,6 +85,7 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
                 },
             }
         );
+        
 
         // Log the full response for debugging
         console.log("AI API Response:", response.data);
