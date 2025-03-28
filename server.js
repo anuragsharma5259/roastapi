@@ -1,120 +1,109 @@
+require("dotenv").config();
 const express = require("express");
-const multer = require("multer");
-const axios = require("axios");
 const cors = require("cors");
+const bodyParser = require("body-parser");
+const multer = require("multer");
+const fs = require("fs");
 const pdfParse = require("pdf-parse");
-require('dotenv').config();  // Load environment variables
 
 const app = express();
-const port = process.env.PORT || 5000;
+app.use(cors({ origin: "https://resume-roast-three.vercel.app'" })); // Allow frontend access
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Middleware
-const corsOptions = {
-    origin: 'https://resume-roast-three.vercel.app', // Your frontend URL
-    optionsSuccessStatus: 200,
-};
-app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const upload = multer({ dest: "uploads/" });
 
-// Set up Multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+// Rate limiting using a more efficient approach
+const userUploadTimestamps = new Map();
+const UPLOAD_COOLDOWN = 5000; // 5 seconds
 
 app.post("/upload-resume", upload.single("resume"), async (req, res) => {
     try {
-        const resumeFile = req.file;
-        const language = req.body.language;
+        const userIP = req.ip;
+        const currentTime = Date.now();
 
-        if (!resumeFile) {
+        if (userUploadTimestamps.has(userIP) && currentTime - userUploadTimestamps.get(userIP) < UPLOAD_COOLDOWN) {
+            return res.status(429).json({ error: "Bhai, HR bhi itni jaldi resume nahi dekh raha! Thoda rukke try kar!" });
+        }
+        userUploadTimestamps.set(userIP, currentTime);
+
+        if (!req.file) {
             return res.status(400).json({ error: "No file uploaded!" });
         }
 
-        // Extract text from the resume (assuming it's a PDF)
-        const extractedText = await extractTextFromPDF(resumeFile.buffer);
+        if (req.file.mimetype !== "application/pdf") {
+            fs.unlink(req.file.path, () => {}); // Async delete
+            return res.status(400).json({ error: "Invalid file type! Please upload a PDF." });
+        }
 
-        // Create the roast prompt
-        let roastPrompt = `Bro, absolutely DESTROY this resume in ${language}. No corporate nonsense—just pure, meme-level roasting like two best friends clowning each other.
-        - Be brutally funny, sarcastic, and engaging.
-        - Roast everything line by line
-        - Use simple, everyday ${language}. No fancy words—just pure savage humor.
-        - Make fun of achievements like they’re participation trophies.
-        - Add emojis to make it hit harder.
-        - Keep it short, punchy, and straight to the point.
-        - Give an ATS score and roast the resume.
-        *Here's the resume:*
-        
-        ${extractedText}
-        
-        - Roast brutally but in the end, give a funny rating.`;
+        const { language } = req.body;
+        const dataBuffer = fs.readFileSync(req.file.path);
+        const pdfData = await pdfParse(dataBuffer);
+        const extractedText = pdfData.text;
 
-        if (language.toLowerCase() === "hindi") {
-            roastPrompt = `Bhai, is resume ki aisi taisi kar do, ekdum full roast chahiye!🔥
-            -project ko bhi ganda roast krde.
+        fs.unlink(req.file.path, () => {}); // Async delete
+
+        
+
+        const selectedLanguage = language || "English";
+
+        let roastPrompt = `Bro, absolutely DESTROY this resume in ${selectedLanguage}. No corporate nonsense—just pure, meme-level roasting like two best friends clowning each other.  
+        - Be brutally funny, sarcastic, and engaging.  
+        - Roast everything line by line 
+        - Use simple, everyday ${selectedLanguage}. No fancy words—just pure savage humor.  
+        - Make fun of achievements like they’re participation trophies.  
+        - Add emojis to make it hit harder.  
+        - Keep it short, punchy, and straight to the point.  
+        - Give an ATS score and roast the resume. 
+        **Here's the resume:** \n\n${extractedText} 
+        
+        - Roast brutally but in the end give rating in a funny way of the resume in one line`;
+
+        if (selectedLanguage.toLowerCase() === "hindi") {
+            roastPrompt = `Bhai, is resume ki aisi taisi kar do, ekdum full tandoori roast chahiye!🔥 
             - Har ek line pe solid taunt maaro.
-            - Achievements ko aise udaao jaise gully cricket trophy ho. 🏏🤣
+            - Achi tarah se lagane wala sarcasm use karo.
+            - Achi achievement ko bhi aise udaao jaise kisi ne gully cricket jeeta ho. 🏏🤣
             - Emojis aur memes ka proper use ho, taki roast aur mast lage. 💀😂
             - Chhota, mazedaar aur full tandoor level ka roast chahiye.
             - ATS score bhi do, lekin aise jaise school me ma'am ne aakhri bench wale ko bola ho - "Beta, next time better karo!" 😆
-            *Yeh raha resume:*
+            **Yeh raha resume:** \n\n${extractedText} 
+            -aur ye sb user ko mt show kr keywords bs inke according roast kr bhai
             
-            ${extractedText}
-            
-            - Aur last me, ek savage tareeke se rating dedo jaise kisi dost ko dete hain.`;
+            - Aur last me, ek savage tareeke se rating dedo jaise kisi dost ko dete hain - "Bhai, ye resume dekh ke HR bhi soch raha hoga ki kaise mana kare bina hasaaye!"`;
         }
 
-        // Call to OpenRouter AI API
-        const response = await axios.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
-                model: "mistral/mistral-small-3-instruct:free",
-                messages: [
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: "meta-llama/llama-3.3-70b-instruct:free",
+                messages: [ 
                     {
-                        role: "user",
-                        content: roastPrompt,
+                        "role": "user", 
+                        "content": roastPrompt
                     },
                 ],
                 top_p: 1,
                 temperature: 1,
-                repetition_penalty: 1,
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-        
+                repetition_penalty: 1
+            }),
+        });
 
-        // Log the full response for debugging
-        console.log("AI API Response:", response.data);
-
-        if (!response.data || !response.data.choices || !response.data.choices[0] || !response.data.choices[0].message || !response.data.choices[0].message.content) {
-            throw new Error("Invalid response format from AI API");
+        if (!response.ok) {
+            return res.status(500).json({ error: "Failed to call OpenRouter AI API" });
         }
 
-        const roastText = response.data.choices[0].message.content;
-
-        res.json({ roast: roastText });
-
+        const data = await response.json();
+        res.json({ roast: data.choices[0].message.content });
     } catch (error) {
-        console.error("Error processing file:", error);
-        res.status(500).json({ error: `Failed to process the resume. Please try again! Error details: ${error.message}` });
+        console.error("Server Error:", error);
+        res.status(500).json({ error: "Failed to roast resume!" });
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
-
-// Function to extract text from PDF
-async function extractTextFromPDF(buffer) {
-    try {
-        const data = await pdfParse(buffer);
-        return data.text;
-    } catch (error) {
-        console.error("Error extracting text from PDF:", error);
-        throw new Error("Failed to extract text from PDF");
-    }
-}
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🔥 Server running on port ${PORT}`));
