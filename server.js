@@ -7,7 +7,16 @@ const fs = require("fs");
 const pdfParse = require("pdf-parse");
 
 const app = express();
-app.use(cors({ origin: "https://resume-roast-three.vercel.app'" })); // Allow frontend access
+
+// ✅ Fix CORS issue
+const corsOptions = {
+    origin: ["https://resume-roast-three.vercel.app", "http://localhost:5173"],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+    allowedHeaders: "Content-Type,Authorization"
+};
+app.use(cors(corsOptions));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -43,8 +52,6 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
 
         fs.unlink(req.file.path, () => {}); // Async delete
 
-        
-
         const selectedLanguage = language || "English";
 
         let roastPrompt = `Bro, absolutely DESTROY this resume in ${selectedLanguage}. No corporate nonsense—just pure, meme-level roasting like two best friends clowning each other.  
@@ -73,32 +80,35 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
             - Aur last me, ek savage tareeke se rating dedo jaise kisi dost ko dete hain - "Bhai, ye resume dekh ke HR bhi soch raha hoga ki kaise mana kare bina hasaaye!"`;
         }
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "meta-llama/llama-3.3-70b-instruct:free",
-                messages: [ 
-                    {
-                        "role": "user", 
-                        "content": roastPrompt
-                    },
-                ],
-                top_p: 1,
-                temperature: 1,
-                repetition_penalty: 1
-            }),
-        });
+        // ✅ Fix: Proper API call error handling
+        let response;
+        try {
+            response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: "meta-llama/llama-3.3-70b-instruct:free",
+                    messages: [{ "role": "user", "content": roastPrompt }],
+                    top_p: 1,
+                    temperature: 1,
+                    repetition_penalty: 1
+                }),
+            });
+        } catch (fetchError) {
+            console.error("API Request Failed:", fetchError);
+            return res.status(500).json({ error: "Failed to connect to AI service." });
+        }
 
         if (!response.ok) {
-            return res.status(500).json({ error: "Failed to call OpenRouter AI API" });
+            return res.status(500).json({ error: "AI service responded with an error." });
         }
 
         const data = await response.json();
         res.json({ roast: data.choices[0].message.content });
+
     } catch (error) {
         console.error("Server Error:", error);
         res.status(500).json({ error: "Failed to roast resume!" });
