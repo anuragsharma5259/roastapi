@@ -10,7 +10,7 @@ const app = express();
 
 // ✅ Fix CORS issue
 const corsOptions = {
-    origin: ["https://resume-roast-three.vercel.app", "http://localhost:5173"],
+    origin: ["https://vercel-frontend-drab.vercel.app/", "http://localhost:5173"],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
     allowedHeaders: "Content-Type,Authorization"
@@ -18,6 +18,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(bodyParser.json());
+app.get('/',(req,res)=>{
+    return res.send(<h1>this is server running</h1>)
+})
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const upload = multer({ dest: "uploads/" });
