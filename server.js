@@ -19,7 +19,7 @@ app.use(cors(corsOptions));
 
 app.use(bodyParser.json());
 app.get('/',(req,res)=>{
-    return res.send(<h1>this is server running</h1>)
+    return res.send('server is running')
 })
 app.use(bodyParser.urlencoded({ extended: true }));
 
