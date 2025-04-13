@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 
 // Allow frontend origin (Vercel)
 const corsOptions = {
-  origin: "https://resumeroaster-theta.vercel.app",
+  origin: "https://resumeroaster-theta.vercel.app", // Update with your frontend URL
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
@@ -21,7 +21,17 @@ app.use(express.urlencoded({ extended: true }));
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-app.post("/upload-resume", upload.single("resume"), async (req, res) => {
+// API key validation middleware
+const authenticateAPIKey = (req, res, next) => {
+  const apiKey = req.headers["authorization"];
+  if (!apiKey || apiKey !== `Bearer ${process.env.OPENROUTER_API_KEY}`) {
+    return res.status(401).json({ error: "Unauthorized: Invalid API Key" });
+  }
+  next();
+};
+
+// Apply the authentication middleware to the /upload-resume endpoint
+app.post("/upload-resume", authenticateAPIKey, upload.single("resume"), async (req, res) => {
   try {
     const resumeFile = req.file;
     const language = req.body.language || "English";
@@ -81,7 +91,7 @@ ${safeText}
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, // Ensure this API key is correct
           "Content-Type": "application/json",
         },
       }
