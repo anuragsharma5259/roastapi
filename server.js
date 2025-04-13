@@ -9,7 +9,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 const corsOptions = {
-  origin: "http://localhost:5173",
+  origin: "https://vercel-frontend-drab.vercel.app",
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
