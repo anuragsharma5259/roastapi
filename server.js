@@ -95,6 +95,10 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
   }
 });
 
+app.get("/", (req, res) => {
+  res.send("This is roast-application backend!");
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
