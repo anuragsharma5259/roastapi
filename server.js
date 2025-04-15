@@ -8,30 +8,23 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Allow frontend origin (Vercel)
+// CORS for your frontend
 const corsOptions = {
-  origin: "https://resumeroaster-theta.vercel.app", // Update with your frontend URL
+  origin: "https://resumeroaster-theta.vercel.app", // ✅ update if frontend URL changes
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Multer config
+// Multer to handle file uploads (in memory)
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// API key validation middleware
-const authenticateAPIKey = (req, res, next) => {
-  const apiKey = req.headers["authorization"];
-  if (!apiKey || apiKey !== `Bearer ${process.env.OPENROUTER_API_KEY}`) {
-    return res.status(401).json({ error: "Unauthorized: Invalid API Key" });
-  }
-  next();
-};
+// ➖ No need for frontend to send API key anymore
 
-// Apply the authentication middleware to the /upload-resume endpoint
-app.post("/upload-resume", authenticateAPIKey, upload.single("resume"), async (req, res) => {
+// 🔥 Resume roasting route
+app.post("/upload-resume", upload.single("resume"), async (req, res) => {
   try {
     const resumeFile = req.file;
     const language = req.body.language || "English";
@@ -41,18 +34,17 @@ app.post("/upload-resume", authenticateAPIKey, upload.single("resume"), async (r
     }
 
     const extractedText = await extractTextFromPDF(resumeFile.buffer);
-
     if (!extractedText || extractedText.trim().length === 0) {
       return res.status(400).json({ error: "Could not extract any text from the PDF." });
     }
 
-    // Limit input to prevent token overflow
     const safeText = extractedText.slice(0, 5000);
 
+    // 🔥 Prompt for roast
     let roastPrompt = `
 Bro, absolutely DESTROY this resume in ${language}. No corporate nonsense—just pure, meme-level roasting like two best friends clowning each other.
 - Be brutally funny, sarcastic, and engaging.
-- Roast everything line by line
+- Roast everything line by line.
 - Use simple, everyday ${language}. No fancy words—just pure savage humor.
 - Make fun of achievements like they’re participation trophies.
 - Add emojis to make it hit harder.
@@ -80,6 +72,7 @@ ${safeText}
 - Aur last me, ek savage tareeke se rating dedo jaise kisi dost ko dete hain.`;
     }
 
+    // 🔐 Secure backend OpenRouter call
     const aiResponse = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -91,7 +84,7 @@ ${safeText}
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, // Ensure this API key is correct
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
@@ -115,14 +108,17 @@ ${safeText}
   }
 });
 
+// Health check route
 app.get("/", (req, res) => {
-  res.send("🔥 Roast My Resume - Backend is running!");
+  res.send("🔥 Roast My Resume - Backend is live!");
 });
 
+// Start server
 app.listen(port, () => {
-  console.log(`🔥 Server running at http://localhost:${port}`);
+  console.log(`🔥 Server running on http://localhost:${port}`);
 });
 
+// PDF text extraction
 async function extractTextFromPDF(buffer) {
   try {
     const data = await pdfParse(buffer);
