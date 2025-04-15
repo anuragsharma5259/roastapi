@@ -72,6 +72,10 @@ ${safeText}
 - Aur last me, ek savage tareeke se rating dedo jaise kisi dost ko dete hain.`;
     }
 
+
+    console.log("API Key:", process.env.OPENROUTER_API_KEY); // just for debugging (remove later)
+
+
     // 🔐 Secure backend OpenRouter call
     const aiResponse = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -91,6 +95,8 @@ ${safeText}
     );
 
     const roastText = aiResponse?.data?.choices?.[0]?.message?.content;
+     console.log(roastText);
+     
 
     if (!roastText) {
       throw new Error("AI response is empty or not in expected format.");
