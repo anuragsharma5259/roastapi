@@ -8,22 +8,23 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// CORS for your frontend
+// CORS configuration for your frontend
 const corsOptions = {
-  origin: "https://resumeroaster-theta.vercel.app", // ✅ update if frontend URL changes
+  origin: "https://resumeroaster-theta.vercel.app", // Update to your frontend URL
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Multer to handle file uploads (in memory)
+// Set up multer storage and file size limit (e.g., 10 MB)
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Max file size of 10 MB
+});
 
-// ➖ No need for frontend to send API key anymore
-
-// 🔥 Resume roasting route
+// ➖ Endpoint to handle resume upload and roasting
 app.post("/upload-resume", upload.single("resume"), async (req, res) => {
   try {
     const resumeFile = req.file;
@@ -40,9 +41,8 @@ app.post("/upload-resume", upload.single("resume"), async (req, res) => {
 
     const safeText = extractedText.slice(0, 5000);
 
-    // 🔥 Prompt for roast
-    let roastPrompt = `
-Bro, absolutely DESTROY this resume in ${language}. No corporate nonsense—just pure, meme-level roasting like two best friends clowning each other.
+    // 🔥 Roasting prompt based on the selected language
+    let roastPrompt = `Bro, absolutely DESTROY this resume in ${language}. No corporate nonsense—just pure, meme-level roasting like two best friends clowning each other.
 - Be brutally funny, sarcastic, and engaging.
 - Roast everything line by line.
 - Use simple, everyday ${language}. No fancy words—just pure savage humor.
@@ -50,7 +50,7 @@ Bro, absolutely DESTROY this resume in ${language}. No corporate nonsense—just
 - Add emojis to make it hit harder.
 - Keep it short, punchy, and straight to the point.
 - Give an ATS score and roast the resume.
-*Here's the resume:*
+*Here's the resume:* 
 
 ${safeText}
 
@@ -58,25 +58,20 @@ ${safeText}
 `;
 
     if (language.toLowerCase() === "hindi") {
-      roastPrompt = `
-Bhai, is resume ki aisi taisi kar do, ekdum full roast chahiye!🔥
+      roastPrompt = `Bhai, is resume ki aisi taisi kar do, ekdum full roast chahiye!🔥
 - Har ek line pe solid taunt maaro.
 - Achievements ko aise udaao jaise gully cricket trophy ho. 🏏🤣
 - Emojis aur memes ka proper use ho, taki roast aur mast lage. 💀😂
 - Chhota, mazedaar aur full tandoor level ka roast chahiye.
 - ATS score bhi do, lekin aise jaise school me ma'am ne bola ho - "Beta, next time better karo!" 😆
-*Yeh raha resume:*
+*Yeh raha resume:* 
 
 ${safeText}
 
 - Aur last me, ek savage tareeke se rating dedo jaise kisi dost ko dete hain.`;
     }
 
-
-    console.log("API Key:", process.env.OPENROUTER_API_KEY); // just for debugging (remove later)
-
-
-    // 🔐 Secure backend OpenRouter call
+    // API key and backend request to OpenRouter (or any other API provider)
     const aiResponse = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -95,21 +90,16 @@ ${safeText}
     );
 
     const roastText = aiResponse?.data?.choices?.[0]?.message?.content;
-     console.log(roastText);
-     
-
     if (!roastText) {
       throw new Error("AI response is empty or not in expected format.");
     }
 
+    // Respond with the roast and extracted text
     res.status(200).json({ roast: roastText, extractedText: safeText });
   } catch (error) {
     console.error("🔥 Error:", error.response?.data || error.message || error);
     res.status(500).json({
-      error:
-        error.response?.data?.error ||
-        error.message ||
-        "Something went wrong while roasting the resume.",
+      error: error.response?.data?.error || error.message || "Something went wrong while roasting the resume.",
     });
   }
 });
@@ -119,7 +109,7 @@ app.get("/", (req, res) => {
   res.send("🔥 Roast My Resume - Backend is live!");
 });
 
-// Start server
+// Start the server
 app.listen(port, () => {
   console.log(`🔥 Server running on http://localhost:${port}`);
 });
